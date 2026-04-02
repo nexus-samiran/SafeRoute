@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Safe Route</title>
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #050d1a;
+      --glass: rgba(6, 14, 28, 0.75);
+      --glass2: rgba(8, 18, 36, 0.88);
+      --glass3: rgba(10, 22, 44, 0.95);
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(100,180,255,0.18);
+      --text: #e8f1ff;
+      --muted: #6b8fb5;
+      --accent: #3b82f6;
+      --accent2: #60a5fa;
+      --accent3: #93c5fd;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --shadow: 0 24px 60px rgba(0,0,0,0.5);
+      --shadow2: 0 8px 32px rgba(0,0,0,0.3);
+      --route-blue: #3b82f6;
+      --route-safe: #22c55e;
+      --blur: blur(20px);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+    /* ── MAP ── */
+    #map { position: absolute; inset: 0; z-index: 1; }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      position: absolute; top: 14px; left: 14px; right: 14px; z-index: 1200;
+      display: flex; align-items: center; gap: 10px; pointer-events: none;
+    }
+    .topbar > * { pointer-events: auto; }
+    .topbar.menu-open .brand { opacity: 0; visibility: hidden; pointer-events: none; }
+    .topbar.menu-open .hamburger { position: relative; z-index: 1305; }
+
+    /* Hamburger */
+    .hamburger {
+      width: 44px; height: 44px; border-radius: 14px;
+      background: var(--glass); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+      cursor: pointer; flex-shrink: 0; transition: background 0.2s, border-color 0.2s;
+    }
+    .hamburger:hover { background: var(--glass2); border-color: var(--border2); }
+    .hamburger span { display: block; width: 18px; height: 2px; background: var(--text); border-radius: 2px; transition: all 0.3s; }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* Brand */
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--glass); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      border-radius: 14px; padding: 10px 14px; min-height: 44px; flex-shrink: 0;
+    }
+    .brand-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #818cf8);
+      box-shadow: 0 0 14px rgba(59,130,246,0.7);
+    }
+    .brand-text { display:flex; flex-direction:column; line-height:1.1; }
+    .brand-name { font-family: 'Space Grotesk', sans-serif; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.02em; }
+    .brand-tagline { font-size: 0.82rem; font-weight: 700; color: var(--accent3); margin-top: 4px; white-space: nowrap; letter-spacing: 0.01em; }
+
+    /* Location Dropdown */
+    .location-wrap { flex: 1; max-width: 320px; position: relative; }
+    .location-select-btn {
+      width: 100%; height: 44px; border-radius: 22px;
+      background: var(--glass); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+      padding: 0 16px 0 36px; cursor: pointer; display: flex; align-items: center;
+      gap: 8px; transition: border-color 0.2s, background 0.2s;
+      position: relative; text-align: left;
+    }
+    .location-select-btn:hover { border-color: var(--border2); background: var(--glass2); }
+    .location-select-btn .loc-icon { position: absolute; left: 12px; font-size: 0.85rem; opacity: 0.7; }
+    .location-select-btn .loc-arrow { margin-left: auto; opacity: 0.5; transition: transform 0.2s; font-size: 0.75rem; }
+    .location-select-btn.open .loc-arrow { transform: rotate(180deg); }
+    .location-select-btn .loc-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .location-dropdown {
+      position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+      background: var(--glass3); border: 1px solid var(--border2);
+      border-radius: 18px; overflow: hidden;
+      box-shadow: var(--shadow); z-index: 2000;
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      display: none; flex-direction: column;
+    }
+    .location-dropdown.open { display: flex; }
+    .loc-search-wrap { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .loc-search { width: 100%; background: var(--glass2); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none; }
+    .loc-search::placeholder { color: var(--muted); }
+    .loc-list { max-height: 260px; overflow-y: auto; padding: 6px 0; }
+    .loc-list::-webkit-scrollbar { width: 3px; }
+    .loc-list::-webkit-scrollbar-track { background: transparent; }
+    .loc-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+    .loc-item {
+      padding: 10px 16px; cursor: pointer; font-size: 0.88rem; color: var(--text);
+      display: flex; align-items: center; gap: 10px; transition: background 0.15s;
+    }
+    .loc-item:hover { background: rgba(59,130,246,0.12); }
+    .loc-item.selected { color: var(--accent2); }
+    .loc-item .li-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Route inputs */
+    .route-wrap {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--glass); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      border-radius: 22px; padding: 6px 8px 6px 14px; flex: 1; max-width: 640px;
+      margin-left: auto; margin-right: auto;
+    }
+    .route-input {
+      flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.88rem;
+    }
+    .route-input::placeholder { color: var(--muted); }
+
+    .route-dd-wrap { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+    .route-dd-btn {
+      flex: 1; min-width: 0; height: 34px; border-radius: 12px; border: 1px solid transparent;
+      background: transparent; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.88rem;
+      text-align: left; cursor: pointer; padding: 0 10px; transition: background .18s,border-color .18s;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .route-dd-btn:hover { background: rgba(255,255,255,0.04); border-color: var(--border2); }
+    .route-dd-btn.placeholder { color: var(--muted); }
+    .mini-map-btn {
+      min-width: 62px; height: 30px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+      color: var(--text); cursor: pointer; flex-shrink: 0; font-size: 0.75rem; font-weight: 700; transition: all .18s;
+    }
+    .mini-map-btn:hover, .mini-map-btn.active { border-color: var(--border2); background: rgba(59,130,246,0.12); }
+    .route-dropdown {
+      position: absolute; top: calc(100% + 8px); left: 0; right: 0; display: none; flex-direction: column;
+      background: var(--glass3); border: 1px solid var(--border2); border-radius: 16px; overflow: hidden; z-index: 2100;
+      box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    }
+    .route-dropdown.open { display: flex; }
+    .route-current-item {
+      padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 0.82rem; color: var(--accent3); cursor: pointer; font-weight: 700;
+      background: rgba(59,130,246,0.08);
+    }
+    .route-current-item:hover { background: rgba(59,130,246,0.16); }
+    .route-sep { width: 1px; height: 24px; background: var(--border); flex-shrink: 0; }
+    .go-btn {
+      height: 32px; padding: 0 14px; border-radius: 16px; border: none;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      color: white; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 700;
+      cursor: pointer; transition: opacity 0.2s, transform 0.15s; flex-shrink: 0;
+    }
+    .go-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .go-btn:active { transform: translateY(0); }
+
+    /* Icon buttons */
+    .icon-btn {
+      width: 44px; height: 44px; border-radius: 14px;
+      background: var(--glass); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      color: var(--text); font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover { background: var(--glass2); border-color: var(--border2); transform: translateY(-1px); }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: absolute; top: 0; left: 0; bottom: 0; z-index: 1100;
+      width: 360px;
+      background: var(--glass3); border-right: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      display: flex; flex-direction: column;
+      transform: translateX(-100%); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+      pointer-events: none;
+    }
+    .sidebar.open { transform: translateX(0); pointer-events: auto; }
+
+    .sidebar-header { padding: 18px 18px 0; display: flex; align-items: center; justify-content: space-between; }
+    .sidebar-logo { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+    .sidebar-tabs { display: flex; gap: 2px; padding: 14px 14px 0; }
+    .stab {
+      flex: 1; padding: 9px 4px; border: none; background: transparent;
+      color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600;
+      cursor: pointer; border-radius: 12px; transition: all 0.2s; text-align: center;
+      letter-spacing: 0.01em;
+    }
+    .stab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .stab.active { color: var(--accent2); background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.2); }
+
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 14px; }
+    .sidebar-content::-webkit-scrollbar { width: 3px; }
+    .sidebar-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── CARDS (sidebar panels) ── */
+    .s-card {
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 18px; padding: 16px; margin-bottom: 12px;
+    }
+    .s-card-title { font-size: 0.85rem; font-weight: 700; color: var(--accent3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-box { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .stat-label { font-size: 0.72rem; color: var(--muted); margin-bottom: 4px; }
+    .stat-val { font-size: 1.1rem; font-weight: 700; }
+
+    .area-item {
+      padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border); margin-bottom: 8px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .area-item:hover { border-color: var(--border2); background: rgba(59,130,246,0.06); }
+    .area-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .area-name { font-size: 0.88rem; font-weight: 600; }
+    .area-meta { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .area-insight { font-size: 0.75rem; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+    .risk-pill {
+      padding: 4px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: white; flex-shrink: 0;
+    }
+    .risk-low { background: var(--success); }
+    .risk-medium { background: var(--warning); }
+    .risk-high { background: var(--danger); }
+
+    .selected-area-panel .detail-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .selected-area-panel .detail-name { font-size: 1rem; font-weight: 700; }
+    .detail-zone { font-size: 0.78rem; color: var(--muted); margin-bottom: 12px; }
+    .crime-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .crime-chip { padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); font-size: 0.74rem; color: var(--muted); }
+
+    /* Legend */
+    .legend-gradient { height: 10px; border-radius: 999px; background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444); margin: 10px 0 6px; }
+    .legend-row { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--muted); }
+
+    /* About */
+    .about-block { font-size: 0.85rem; color: var(--muted); line-height: 1.65; }
+    .about-block strong { color: var(--text); }
+
+    /* Time selector */
+    .time-field { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+    .time-field select { flex: 1; background: transparent; border: none; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; }
+    .time-field select option { color: #111; }
+    .sort-btn {
+      padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05); color: var(--muted); font-size: 0.78rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; margin-bottom: 10px;
+    }
+    .sort-btn:hover { border-color: var(--border2); color: var(--text); }
+
+    /* ── ROUTE PANEL (left vertical) ── */
+    .route-panel {
+      position: absolute; top: 88px; left: 14px; bottom: 14px;
+      width: min(360px, calc(100vw - 28px)); z-index: 1100;
+      background: var(--glass3); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      border-radius: 22px; padding: 12px;
+      box-shadow: var(--shadow);
+      display: none; overflow: hidden;
+    }
+    .route-panel.show { display: flex; flex-direction: column; }
+    .route-panel-header { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 12px; }
+    .route-panel-header-left { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
+    .route-panel-title { font-family: 'Space Grotesk', sans-serif; font-size: 0.92rem; font-weight: 700; }
+    .route-status { font-size: 0.74rem; color: var(--muted); text-align: left; line-height: 1.45; }
+    #routeResults { flex: 1; overflow-y: auto; padding-right: 2px; }
+    #routeResults::-webkit-scrollbar { width: 4px; }
+    #routeResults::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 999px; }
+    .route-close-btn {
+      width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05); color: var(--text); font-size: 1rem; font-weight: 800;
+      display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink: 0;
+      transition: all .2s;
+    }
+    .route-close-btn:hover { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.35); color: #fff; }
+    .route-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .route-card {
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 16px;
+      padding: 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    }
+    .route-card:hover { border-color: rgba(59,130,246,0.35); }
+    .route-card.selected { border-color: rgba(59,130,246,0.55); background: rgba(59,130,246,0.07); }
+    .route-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .route-kind { font-size: 0.78rem; font-weight: 700; }
+    .route-summary { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+    .route-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+    .rs-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 6px; }
+    .rs-label { font-size: 0.62rem; color: var(--muted); margin-bottom: 3px; }
+    .rs-val { font-size: 0.8rem; font-weight: 700; }
+    .pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .pill { font-size: 0.7rem; font-weight: 600; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted); }
+    .pill.safe { color: var(--success); }
+    .pill.warn { color: var(--warning); }
+    .pill.danger { color: var(--danger); }
+    .route-footer { font-size: 0.68rem; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+    .route-choice-row { display:flex; flex-direction:column; gap:8px; margin-bottom: 12px; }
+    .route-choice-btn {
+      width: 100%; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04); color: var(--text); font-size: 0.8rem; font-weight: 700;
+      cursor: pointer; transition: all .2s;
+    }
+    .route-choice-btn:hover { border-color: var(--border2); }
+    .route-choice-btn.active { background: rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.4); color: var(--accent3); }
+    .route-nav-row { display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
+    .gmaps-link { width: 100%; }
+    .gmaps-link {
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding: 10px 14px; border-radius: 12px; text-decoration:none;
+      border: 1px solid rgba(66,133,244,0.35); background: rgba(66,133,244,0.12);
+      color: #dbeafe; font-size: 0.8rem; font-weight: 700; transition: all .2s;
+    }
+    .gmaps-link:hover { border-color: rgba(66,133,244,0.65); background: rgba(66,133,244,0.18); transform: translateY(-1px); }
+
+    .empty-state { padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border); color: var(--muted); font-size: 0.85rem; }
+    .loader-state { padding: 14px; color: var(--muted); font-size: 0.82rem; }
+
+    /* ── ZOOM CONTROLS override ── */
+    .leaflet-control-zoom { border: none !important; box-shadow: none !important; }
+    .leaflet-control-zoom a {
+      background: var(--glass3) !important; border: 1px solid var(--border) !important;
+      color: var(--text) !important; backdrop-filter: var(--blur); width: 34px !important; height: 34px !important; line-height: 34px !important;
+    }
+    .leaflet-control-zoom a:hover { background: var(--glass2) !important; }
+    .leaflet-control-zoom-in { border-radius: 10px 10px 0 0 !important; }
+    .leaflet-control-zoom-out { border-radius: 0 0 10px 10px !important; }
+
+    /* popup */
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: rgba(8,18,36,0.97) !important; color: var(--text) !important; border: 1px solid var(--border) !important; box-shadow: var(--shadow2) !important; }
+    .popup-title { font-weight: 700; margin-bottom: 6px; font-size: 0.9rem; }
+    .popup-line { font-size: 0.82rem; color: var(--muted); margin: 4px 0; }
+    .popup-line strong { color: var(--text); }
+
+    /* pulse marker */
+    .marker-pulse { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.9); animation: pulse 1.8s infinite; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255,90,107,0.55); }
+      70% { box-shadow: 0 0 0 12px rgba(255,90,107,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,90,107,0); }
+    }
+
+    /* sidebar overlay (mobile) */
+    .sidebar-overlay { position: absolute; inset: 0; z-index: 1090; background: rgba(0,0,0,0.4); display: none; cursor: pointer; }
+    .sidebar-overlay.open { display: block; }
+    .sos-float {
+      position: absolute; left: 14px; bottom: 118px; z-index: 1200;
+      width: 58px; height: 58px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.14);
+      background: linear-gradient(135deg, #dc2626, #ef4444); color: #fff; font-weight: 800; font-size: 0.9rem;
+      box-shadow: 0 18px 34px rgba(239,68,68,0.35); cursor: pointer;
+    }
+    .sos-float:hover { transform: translateY(-1px); }
+
+    @media (max-width: 900px) {
+      .topbar { flex-wrap: wrap; align-items: stretch; }
+      .hamburger { order: 0; }
+      .brand { min-width: 0; order: 1; }
+      .route-wrap { width: 100%; max-width: 100%; order: 10; margin-left: 0; margin-right: 0; }
+    }
+    @media (max-width: 700px) {
+      .sidebar { width: 90vw; }
+      .topbar { top: 10px; left: 10px; right: 10px; gap: 8px; }
+      .route-panel { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 58vh; padding: 10px; border-radius: 18px; }
+      .route-grid { grid-template-columns: 1fr; }
+      .route-stats { grid-template-columns: repeat(2, 1fr); }
+      .brand-tagline { font-size: 0.72rem; }
+      .route-wrap { display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:10px; border-radius:18px; }
+      .route-dd-wrap { width:100%; }
+      .route-sep { display:none; }
+      .go-btn { width:100%; height:38px; border-radius:12px; }
+      .icon-btn { width:40px; height:40px; }
+      .sos-float { width:54px; height:54px; left: 10px; bottom: 154px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#818cf8);box-shadow:0 0 12px rgba(59,130,246,0.7);display:inline-block"></span>
+        Safe Route
+      </div>
+      <span style="font-size:0.72rem;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:var(--accent2);padding:3px 10px;border-radius:999px;font-weight:700">BETA</span>
+    </div>
+
+    <div class="sidebar-tabs">
+      <button class="stab active" data-tab="area">Area Insight</button>
+      <button class="stab" data-tab="risk">Top Risk</button>
+      <button class="stab" data-tab="legend">Legend</button>
+      <button class="stab" data-tab="about">About</button>
+    </div>
+
+    <div class="sidebar-content">
+
+      <!-- AREA INSIGHT -->
+      <div class="tab-panel active" id="tab-area">
+        <div class="s-card">
+          <div class="s-card-title">City Snapshot</div>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="stat-label">Areas loaded</div><div id="areasCount" class="stat-val">--</div></div>
+            <div class="stat-box"><div class="stat-label">Avg. city risk</div><div id="avgRisk" class="stat-val">--</div></div>
+            <div class="stat-box"><div class="stat-label">High-risk zones</div><div id="highRiskCount" class="stat-val">--</div></div>
+            <div class="stat-box"><div class="stat-label">Time mode</div><div id="currentTimeMode" class="stat-val">Night</div></div>
+          </div>
+        </div>
+
+        <div class="s-card selected-area-panel" id="selectedAreaCard">
+          <div class="s-card-title">Selected Area</div>
+          <div id="selectedAreaPanel" class="loader-state">Click an area marker to view detailed safety insights.</div>
+        </div>
+      </div>
+
+      <!-- TOP RISK -->
+      <div class="tab-panel" id="tab-risk">
+        <div class="s-card">
+          <div class="s-card-title">All database areas</div>
+          <div class="time-field">
+            <span>🕒</span>
+            <select id="timeSelector">
+              <option value="day">Day • 6 AM–6 PM</option>
+              <option value="evening">Evening • 6 PM–10 PM</option>
+              <option value="night" selected>Night • 10 PM–1 AM</option>
+              <option value="late-night">Late Night • 1 AM–6 AM</option>
+            </select>
+          </div>
+          <button id="sortToggleBtn" class="sort-btn">↓ Highest first</button>
+          <div id="areaList"></div>
+        </div>
+      </div>
+
+      <!-- LEGEND -->
+      <div class="tab-panel" id="tab-legend">
+        <div class="s-card">
+          <div class="s-card-title">Risk Heatmap</div>
+          <div class="legend-gradient"></div>
+          <div class="legend-row"><span>Low</span><span>Medium</span><span>High</span></div>
+          <div style="margin-top:12px;font-size:0.82rem;color:var(--muted);line-height:1.6">
+            Heatmap intensity reflects the area risk score. Brighter red = higher danger. Green = safer zones.
+          </div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-title">Route Colors</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:36px;height:4px;background:var(--route-blue);border-radius:4px"></div>
+              <span style="font-size:0.82rem">Fastest route (blue, solid)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:36px;height:4px;background:var(--route-safe);border-radius:4px;background:repeating-linear-gradient(90deg,var(--route-blue) 0,var(--route-blue) 6px,transparent 6px,transparent 12px)"></div>
+              <span style="font-size:0.82rem">Safest route (blue, dashed)</span>
+            </div>
+          </div>
+        </div>
+        <div class="s-card">
+          <div class="s-card-title">Risk Markers</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:12px;height:12px;border-radius:50%;background:#ef4444"></div><span style="font-size:0.82rem">High risk</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:12px;height:12px;border-radius:50%;background:#f59e0b"></div><span style="font-size:0.82rem">Medium risk</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:12px;height:12px;border-radius:50%;background:#22c55e"></div><span style="font-size:0.82rem">Low risk</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABOUT -->
+      <div class="tab-panel" id="tab-about">
+        <div class="s-card">
+          <div class="s-card-title">About Safe Route</div>
+          <div class="about-block">
+            <strong>Safe Route</strong> is a women's safety mapping platform focused on major cities in India. It combines real-time area risk data with routing intelligence to show you not just the fastest route — but the safest one.
+            <br/><br/>
+            <strong>Data source:</strong> Supabase-backed area safety dataset with crowd density, lighting conditions, police presence, and historical incident data.
+            <br/><br/>
+            <strong>Routing:</strong> OSRM open routing engine with multi-alternative route scoring.
+            <br/><br/>
+            Built with ❤ for safer cities.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <button class="hamburger" id="hamburger" title="Menu" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <div class="brand-text">
+        <span class="brand-name">Safe Route</span>
+        <span class="brand-tagline">An exclusive website by Samiran Pande.</span>
+      </div>
+    </div>
+
+    <div class="location-wrap" id="locationWrap">
+      <button class="location-select-btn" id="locationBtn" type="button">
+        <span class="loc-icon">🏙️</span>
+        <span class="loc-label" id="locationLabel">All India</span>
+        <span class="loc-arrow">▼</span>
+      </button>
+      <div class="location-dropdown" id="locationDropdown">
+        <div class="loc-search-wrap">
+          <input class="loc-search" id="locSearch" type="text" placeholder="Search city…" autocomplete="off" />
+        </div>
+        <div class="loc-list" id="locList"></div>
+      </div>
+    </div>
+
+    <!-- Route inputs -->
+    <div class="route-wrap">
+      <div class="route-dd-wrap" id="startWrap">
+        <button id="startBtn" class="route-dd-btn placeholder" type="button">From (e.g. Connaught Place)</button>
+        <button id="pickStartMapBtn" class="mini-map-btn" type="button" title="Pick pickup from map">Map</button>
+        <input id="startInput" class="route-input" type="hidden" />
+        <div class="route-dropdown" id="startDropdown">
+          <div class="loc-search-wrap">
+            <input class="loc-search" id="startSearch" type="text" placeholder="Search pickup area…" autocomplete="off" />
+          </div>
+          <div class="route-current-item" id="useCurrentPickup">Use current location</div>
+          <div class="loc-list" id="startList"></div>
+        </div>
+      </div>
+      <div class="route-sep"></div>
+      <div class="route-dd-wrap" id="endWrap">
+        <button id="endBtn" class="route-dd-btn placeholder" type="button">To (e.g. Hauz Khas)</button>
+        <button id="pickEndMapBtn" class="mini-map-btn" type="button" title="Pick drop from map">Map</button>
+        <input id="endInput" class="route-input" type="hidden" />
+        <div class="route-dropdown" id="endDropdown">
+          <div class="loc-search-wrap">
+            <input class="loc-search" id="endSearch" type="text" placeholder="Search drop area…" autocomplete="off" />
+          </div>
+          <div class="loc-list" id="endList"></div>
+        </div>
+      </div>
+      <button class="go-btn" id="routeBtn">Go</button>
+    </div>
+
+    <button class="icon-btn" id="locateBtn" title="Locate me">📡</button>
+  </div>
+
+  <button class="sos-float" id="sosBtn" title="Emergency SOS">SOS</button>
+
+  <!-- ROUTE PANEL (bottom) -->
+  <div class="route-panel" id="routePanel">
+    <div class="route-panel-header">
+      <div class="route-panel-header-left">
+        <span class="route-panel-title">Route Comparison</span>
+        <button class="route-close-btn" id="routeCloseBtn" type="button" title="Close route comparison" aria-label="Close route comparison">✕</button>
+      </div>
+      <span class="route-status" id="routeStatus">Search a route to compare safest and fastest options</span>
+    </div>
+    <div id="routeResults">
+      <div class="empty-state">Enter two locations above to find fastest &amp; safest routes. Try <strong>Connaught Place → Hauz Khas Village</strong>.</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    // ── CONFIG ──
+    const SUPABASE_URL = "https://chvtvbkoxdzihdhzcnif.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNodnR2YmtveGR6aWhkaHpjbmlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4ODY5NzQsImV4cCI6MjA5MDQ2Mjk3NH0.yHDZGuBhr5ytju4wrmMGGNtXK2ojaR11RCNAOvOwxDk";
+
+    const INDIA_CENTER = [22.5937, 78.9629];
+    const INDIA_ZOOM = 5;
+    const DEFAULT_CITY_ZOOM = 12;
+    const MAX_LIST = 15;
+    const DELHI_NCR_CITY_NAMES = ['delhi', 'new delhi', 'north delhi', 'south delhi', 'east delhi', 'west delhi', 'central delhi', 'north west delhi', 'north east delhi', 'south west delhi', 'south east delhi', 'noida', 'greater noida', 'ghaziabad', 'gurgaon', 'gurugram', 'faridabad', 'sonipat'];
+    const DELHI_NCR_BOUNDS = { minLat: 28.35, maxLat: 28.95, minLng: 76.80, maxLng: 77.60 };
+
+    const TIME_MULTIPLIERS = { day: 0.7, evening: 1.0, night: 1.4, 'late-night': 1.8 };
+    const TIME_LABELS = { day: 'Day', evening: 'Evening', night: 'Night', 'late-night': 'Late Night' };
+    const RISK_COLORS = { low: '#22c55e', medium: '#f59e0b', high: '#ef4444' };
+
+    const PRESET_AREAS = [
+      { city: 'Delhi', name: 'Connaught Place', lat: 28.6315, lng: 77.2167, risk: 'medium' },
+      { city: 'Delhi', name: 'Karol Bagh', lat: 28.6516, lng: 77.1910, risk: 'high' },
+      { city: 'Delhi', name: 'Saket', lat: 28.5245, lng: 77.2066, risk: 'low' },
+      { city: 'Delhi', name: 'Rohini', lat: 28.7290, lng: 77.1230, risk: 'medium' },
+      { city: 'Delhi', name: 'Dwarka', lat: 28.5921, lng: 77.0460, risk: 'low' },
+      { city: 'Delhi', name: 'Hauz Khas Village', lat: 28.5494, lng: 77.2001, risk: 'low' },
+      { city: 'Delhi', name: 'Lajpat Nagar', lat: 28.5677, lng: 77.2436, risk: 'medium' },
+      { city: 'Delhi', name: 'Paharganj', lat: 28.6436, lng: 77.2141, risk: 'high' },
+      { city: 'Delhi', name: 'Chandni Chowk', lat: 28.6506, lng: 77.2300, risk: 'high' },
+      { city: 'Delhi', name: 'Vasant Kunj', lat: 28.5243, lng: 77.1581, risk: 'low' },
+      { city: 'Delhi', name: 'Greater Kailash', lat: 28.5409, lng: 77.2437, risk: 'low' },
+      { city: 'Delhi', name: 'Preet Vihar', lat: 28.6399, lng: 77.2973, risk: 'medium' },
+      { city: 'Delhi', name: 'Janakpuri', lat: 28.6219, lng: 77.0790, risk: 'low' },
+      { city: 'Delhi', name: 'Malviya Nagar', lat: 28.5322, lng: 77.2036, risk: 'medium' },
+      { city: 'Delhi', name: 'Nehru Place', lat: 28.5491, lng: 77.2527, risk: 'medium' },
+      { city: 'Delhi', name: 'Uttam Nagar', lat: 28.6218, lng: 77.0612, risk: 'high' },
+      { city: 'Delhi', name: 'Shahdara', lat: 28.6728, lng: 77.2913, risk: 'high' },
+      { city: 'Delhi', name: 'Rajouri Garden', lat: 28.6425, lng: 77.1218, risk: 'medium' },
+      { city: 'Delhi', name: 'Tilak Nagar', lat: 28.6360, lng: 77.0968, risk: 'medium' },
+      { city: 'Delhi', name: 'Pitampura', lat: 28.7033, lng: 77.1322, risk: 'low' },
+      { city: 'Delhi', name: 'Ashok Vihar', lat: 28.6923, lng: 77.1760, risk: 'medium' },
+      { city: 'Delhi', name: 'Civil Lines', lat: 28.6767, lng: 77.2250, risk: 'low' },
+      { city: 'Delhi', name: 'Kalkaji', lat: 28.5496, lng: 77.2588, risk: 'medium' },
+      { city: 'Delhi', name: 'Mayur Vihar', lat: 28.6067, lng: 77.2942, risk: 'medium' },
+      { city: 'Delhi', name: 'Punjabi Bagh', lat: 28.6689, lng: 77.1256, risk: 'low' },
+      { city: 'Delhi', name: 'Paschim Vihar', lat: 28.6692, lng: 77.1015, risk: 'medium' },
+      { city: 'Delhi', name: 'South Extension', lat: 28.5681, lng: 77.2197, risk: 'low' },
+      { city: 'Delhi', name: 'Defence Colony', lat: 28.5735, lng: 77.2343, risk: 'low' },
+      { city: 'Delhi', name: 'Model Town', lat: 28.7049, lng: 77.1936, risk: 'medium' },
+      { city: 'Delhi', name: 'Mukherjee Nagar', lat: 28.7104, lng: 77.2057, risk: 'medium' }
+    ];
+
+    // ── STATE ──
+    const state = {
+      map: null, areas: [], markers: [], heatLayer: null,
+      alerts: [], alertMarkers: [],
+      routeLayers: [], selectedArea: null,
+      showHeat: true, showMarkers: true, sortDesc: true,
+      currentTimeMode: 'night', currentRoutes: [],
+      mapPickMode: null, selectedRouteId: null,
+      pickupMarker: null, dropMarker: null,
+      lastRouteStart: null, lastRouteEnd: null,
+      allAreas: [], availableCities: [], currentCity: 'all',
+    };
+
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ── HELPERS ──
+    function escapeHtml(str = '') {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+    function getRiskClass(r = '') {
+      const l = r.toLowerCase();
+      if (l.includes('high')) return 'risk-high';
+      if (l.includes('medium')) return 'risk-medium';
+      return 'risk-low';
+    }
+    function riskPill(level = '') {
+      return `<span class="risk-pill ${getRiskClass(level)}">${escapeHtml(level)}</span>`;
+    }
+    function average(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+    function haversineKm(lat1,lon1,lat2,lon2) {
+      const R=6371,toRad=d=>d*Math.PI/180,dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1);
+      const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+      return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    }
+    function normalizeRiskLevel(score) { return score>=65?'High':score>=46?'Medium':'Low'; }
+    function titleCase(str='') {
+      return String(str).toLowerCase().split(/\s+/).filter(Boolean).map(part=>part.charAt(0).toUpperCase()+part.slice(1)).join(' ');
+    }
+    function getAreaCity(area) {
+      const rawCity = String(area.city || '').trim();
+      if (rawCity) return titleCase(rawCity);
+      if (isDelhiNcrArea(area)) return 'Delhi';
+      return 'Other';
+    }
+    function isDelhiCoordinate(lat, lng) {
+      return lat >= DELHI_NCR_BOUNDS.minLat && lat <= DELHI_NCR_BOUNDS.maxLat && lng >= DELHI_NCR_BOUNDS.minLng && lng <= DELHI_NCR_BOUNDS.maxLng;
+    }
+    function isDelhiNcrArea(area) {
+      const city = String(area.city || '').trim().toLowerCase();
+      const lat = Number(area.lat);
+      const lng = Number(area.lng);
+      return DELHI_NCR_CITY_NAMES.includes(city) || isDelhiCoordinate(lat, lng);
+    }
+    function normalizeAreaRow(area) {
+      const crimes = Array.isArray(area.common_crimes)
+        ? area.common_crimes
+        : String(area.common_crimes || '')
+            .split(/[|,]/)
+            .map(s => s.trim())
+            .filter(Boolean);
+      const riskLevel = area.risk_level || normalizeRiskLevel(Number(area.risk_score || 0));
+      return {
+        ...area,
+        city: getAreaCity(area),
+        lat: Number(area.lat),
+        lng: Number(area.lng),
+        risk_score: Number(area.risk_score),
+        women_safety_index: Number(area.women_safety_index || 0),
+        risk_level: riskLevel,
+        common_crimes: crimes
+      };
+    }
+    function getNearestAreas(lat,lng,maxKm=2.3) {
+      return state.areas.map(a=>({...a,distanceKm:haversineKm(lat,lng,a.lat,a.lng)})).filter(a=>a.distanceKm<=maxKm).sort((a,b)=>a.distanceKm-b.distanceKm);
+    }
+    function getNearbyAlerts(lat,lng,maxKm=0.8) {
+      return state.alerts.map(a=>({...a,distanceKm:haversineKm(lat,lng,a.lat,a.lng)})).filter(a=>a.distanceKm<=maxKm).sort((a,b)=>a.distanceKm-b.distanceKm);
+    }
+    function severityWeight(severity='low') {
+      const s=String(severity).toLowerCase();
+      if (s==='high') return 8;
+      if (s==='medium') return 4;
+      return 1.5;
+    }
+    function scoreRoute(coords, timeMode) {
+      if (!coords?.length) return { score:0, avgBaseRisk:0, exposedAreas:[], nearbyAlerts:[], alertPenalty:0, level:'Low' };
+      const expMap=new Map(); const alertMap=new Map(); let cum=0, cnt=0, alertPenalty=0;
+      coords.forEach(([lng,lat],idx)=>{
+        const nearby=getNearestAreas(lat,lng,2.4);
+        if (nearby.length) {
+          const w=nearby.slice(0,3).reduce((s,a,i)=>{const inf=i===0?1:i===1?0.6:0.35,dp=Math.max(0.35,1-a.distanceKm/3);return s+a.risk_score*inf*dp;},0);
+          const div=nearby.slice(0,3).reduce((s,_,i)=>s+(i===0?1:i===1?0.6:0.35),0);
+          cum+=w/div; cnt++;
+          nearby.slice(0,2).forEach(a=>{ const e=expMap.get(a.area)||{area:a,hits:0}; e.hits++; expMap.set(a.area,e); });
+        }
+        if (idx % 4 === 0) {
+          getNearbyAlerts(lat,lng,0.9).slice(0,3).forEach(alert=>{
+            const key=`${alert.micro_location}|${alert.title}`;
+            const e=alertMap.get(key)||{alert,hits:0};
+            e.hits++; alertMap.set(key,e);
+            alertPenalty += severityWeight(alert.severity);
+          });
+        }
+      });
+      const baseRisk=cnt?cum/cnt:18;
+      let rs=baseRisk*(TIME_MULTIPLIERS[timeMode]||1);
+      const exposed=[...expMap.values()].sort((a,b)=>b.hits-a.hits).slice(0,5).map(i=>i.area);
+      const nearbyAlerts=[...alertMap.values()].sort((a,b)=>b.hits-a.hits).slice(0,6).map(i=>i.alert);
+      if (exposed.some(a=>a.zone?.toLowerCase().includes('new delhi'))) rs-=3;
+      if (exposed.some(a=>a.crowd_density==='low'&&a.lighting_condition==='poor')) rs+=8;
+      if (exposed.some(a=>a.police_presence==='high')) rs-=4;
+      rs += Math.min(18, alertPenalty / 3);
+      rs = Math.max(0, Math.min(100, Math.round(rs)));
+      return { score:rs, avgBaseRisk:Math.round(baseRisk), exposedAreas:exposed, nearbyAlerts, alertPenalty:Math.round(alertPenalty), level:normalizeRiskLevel(rs) };
+    }
+    function fmtKm(m) { return `${(m/1000).toFixed(1)} km`; }
+    function fmtDur(s) { const m=Math.round(s/60); return m<60?`${m} min`:`${Math.floor(m/60)}h ${m%60}m`; }
+    function markerHtml(color) {
+      return `<div style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;"><div class="marker-pulse" style="background:${color}"></div></div>`;
+    }
+    function createPinIcon(kind) {
+      const bg = kind === 'start' ? '#2563eb' : '#ef4444';
+      const label = kind === 'start' ? 'P' : 'D';
+      return L.divIcon({
+        className: '', iconSize: [26, 38], iconAnchor: [13, 36],
+        html: `<div style="position:relative;width:26px;height:38px;"><div style="position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${bg};box-shadow:0 8px 20px ${bg}55;"></div><div style="position:absolute;left:6px;top:4px;width:14px;height:14px;border-radius:50%;background:#fff;color:${bg};font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;">${label}</div></div>`
+      });
+    }
+    function updatePointMarker(kind, lat, lng) {
+      const key = kind === 'start' ? 'pickupMarker' : 'dropMarker';
+      if (state[key]) state.map.removeLayer(state[key]);
+      state[key] = L.marker([lat, lng], { icon: createPinIcon(kind) }).addTo(state.map);
+    }
+
+    // ── MAP INIT ──
+    function initMap() {
+      state.map = L.map('map', {
+        zoomControl: false,
+        preferCanvas: true,
+        zoomAnimation: true,
+        fadeAnimation: true,
+        markerZoomAnimation: true,
+        inertia: true,
+        inertiaDeceleration: 3000,
+        inertiaMaxSpeed: 3000,
+        zoomSnap: 0.25,
+        zoomDelta: 0.25,
+        wheelDebounceTime: 40,
+        wheelPxPerZoomLevel: 80
+      }).setView(INDIA_CENTER, INDIA_ZOOM);
+      L.control.zoom({ position: 'bottomright' }).addTo(state.map);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom:19,
+        updateWhenZooming: false,
+        updateWhenIdle: true,
+        keepBuffer: 8,
+        attribution:'&copy; OpenStreetMap contributors'
+      }).addTo(state.map);
+    }
+
+    // ── DATA ──
+    async function loadAreas() {
+      document.getElementById('areaList').innerHTML = '<div class="loader-state">Loading areas…</div>';
+      const { data, error } = await supabaseClient.from('areas_data').select('*').order('risk_score', { ascending: false });
+      if (error) {
+        document.getElementById('areaList').innerHTML = `<div class="loader-state">Could not load area data: ${escapeHtml(error.message)}</div>`;
+        return;
+      }
+      state.allAreas = (data || []).map(normalizeAreaRow).filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lng));
+      const dbCities = [...new Set(state.allAreas.map(a => a.city).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+      const presetCities = [...new Set(PRESET_AREAS.map(a => a.city).filter(Boolean))];
+      state.availableCities = [...new Set([...dbCities, ...presetCities])].sort((a,b)=>a.localeCompare(b));
+      renderCityList('');
+      applyCityFilter('all', false);
+    }
+
+    async function loadAlerts() {
+      const { data, error } = await supabaseClient.from('alerts').select('*');
+      if (error) {
+        console.error('Could not load alerts', error);
+        return;
+      }
+      state.alerts = (data || []).filter(a => typeof a.lat === 'number' && typeof a.lng === 'number');
+      renderAlerts();
+    }
+
+    function renderStats() {
+      document.getElementById('areasCount').textContent = state.areas.length;
+      document.getElementById('avgRisk').textContent = Math.round(average(state.areas.map(a=>a.risk_score)));
+      document.getElementById('highRiskCount').textContent = state.areas.filter(a=>a.risk_score>=65).length;
+      document.getElementById('currentTimeMode').textContent = TIME_LABELS[state.currentTimeMode];
+    }
+
+
+    function getCurrentPresetAreas() {
+      return PRESET_AREAS.filter(a => state.currentCity === 'all' || a.city === state.currentCity);
+    }
+
+    function renderCityList(query='') {
+      const list = document.getElementById('locList');
+      if (!list) return;
+      const q = String(query || '').toLowerCase().trim();
+      const cities = ['All India', ...state.availableCities].filter(city => city.toLowerCase().includes(q));
+      list.innerHTML = cities.map(city => {
+        const value = city === 'All India' ? 'all' : city;
+        const active = (city === 'All India' && state.currentCity === 'all') || state.currentCity === city;
+        return `<div class="loc-item ${active ? 'selected' : ''}" data-city="${escapeHtml(value)}"><div class="li-dot" style="background:${city === 'All India' ? '#60a5fa' : '#22c55e'}"></div>${escapeHtml(city)}</div>`;
+      }).join('');
+      list.querySelectorAll('.loc-item').forEach(el => {
+        el.addEventListener('click', () => applyCityFilter(el.dataset.city === 'all' ? 'all' : el.dataset.city, true));
+      });
+    }
+
+    function zoomToCity(cityName) {
+      if (cityName === 'all') {
+        state.map.flyTo(INDIA_CENTER, INDIA_ZOOM, { animate: true, duration: 1.4, easeLinearity: 0.25 });
+        return;
+      }
+      const cityPoints = state.allAreas.filter(a => a.city === cityName);
+      if (cityPoints.length) {
+        const bounds = L.latLngBounds(cityPoints.map(a => [a.lat, a.lng]));
+        state.map.flyToBounds(bounds.pad(0.2), { animate: true, duration: 1.4, easeLinearity: 0.25, maxZoom: 13 });
+        return;
+      }
+      const presetPoints = PRESET_AREAS.filter(a => a.city === cityName);
+      if (presetPoints.length) {
+        const bounds = L.latLngBounds(presetPoints.map(a => [a.lat, a.lng]));
+        state.map.flyToBounds(bounds.pad(0.2), { animate: true, duration: 1.4, easeLinearity: 0.25, maxZoom: 13 });
+      }
+    }
+
+    function applyCityFilter(cityName='all', shouldZoom=true) {
+      state.currentCity = cityName;
+      state.areas = cityName === 'all' ? [...state.allAreas] : state.allAreas.filter(a => a.city === cityName);
+      if (state.selectedArea && cityName !== 'all' && state.selectedArea.city !== cityName) state.selectedArea = null;
+      document.getElementById('locationLabel').textContent = cityName === 'all' ? 'All India' : cityName;
+      document.getElementById('locSearch').value = '';
+      renderCityList('');
+      renderStats();
+      renderAreas();
+      renderAreaList();
+      renderSelectedArea();
+      buildRouteDropdowns();
+      clearRouteSelectionState();
+      if (shouldZoom) zoomToCity(cityName);
+    }
+
+    function renderAreas() {
+      state.markers.forEach(m=>state.map.removeLayer(m));
+      state.markers = [];
+      state.areas.forEach(area => {
+        const l=area.risk_level.toLowerCase();
+        const color=l.includes('high')?RISK_COLORS.high:l.includes('medium')?RISK_COLORS.medium:RISK_COLORS.low;
+        const icon = L.divIcon({ html:markerHtml(color), className:'', iconSize:[20,20], iconAnchor:[10,10] });
+        const marker = L.marker([area.lat,area.lng], { icon })
+          .addTo(state.map)
+          .bindPopup(`<div class="popup-title">${escapeHtml(area.area)}</div>${riskPill(area.risk_level)}<div class="popup-line">Zone: <strong>${escapeHtml(area.zone)}</strong></div><div class="popup-line">Time risk: <strong>${escapeHtml(area.time_risk)}</strong></div><div class="popup-line">${escapeHtml(area.insight)}</div>`);
+        marker.on('click', () => { state.selectedArea = area; renderSelectedArea(); openSidebarTab('area'); });
+        state.markers.push(marker);
+      });
+      renderHeat(state.areas);
+    }
+
+    function renderHeat(areas) {
+      if (state.heatLayer) state.map.removeLayer(state.heatLayer);
+      const pts = areas.map(a=>[a.lat,a.lng,Math.max(0.2,a.risk_score/100)]);
+      state.heatLayer = L.heatLayer(pts, { radius:28, blur:26, maxZoom:15, minOpacity:0.28, gradient:{ 0.2:'#22c55e', 0.5:'#f6c340', 0.85:'#ef4444' } });
+      if (state.showHeat) state.heatLayer.addTo(state.map);
+    }
+    function renderAlerts() {
+      state.alertMarkers.forEach(m=>state.map.removeLayer(m));
+      state.alertMarkers = [];
+      state.alerts.forEach(alert=>{
+        const sev=String(alert.severity||'low').toLowerCase();
+        const color=sev==='high'?'#ff0000':sev==='medium'?'#ffd400':'#22c55e';
+        const icon=L.divIcon({html:`<div style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;"><div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,.95);box-shadow:0 0 0 7px ${color}30;"></div></div>`,className:'',iconSize:[18,18],iconAnchor:[9,9]});
+        const marker=L.marker([alert.lat,alert.lng], { icon })
+          .addTo(state.map)
+          .bindPopup(`<div class="popup-title">${escapeHtml(alert.title)}</div><div class="popup-line">Alert: <strong>${escapeHtml(alert.type)}</strong> • <strong>${escapeHtml(alert.severity)}</strong></div><div class="popup-line">Spot: <strong>${escapeHtml(alert.micro_location)}</strong></div><div class="popup-line">Time: <strong>${escapeHtml(alert.time_pattern)}</strong></div><div class="popup-line">${escapeHtml(alert.description)}</div>`);
+        state.alertMarkers.push(marker);
+      });
+    }
+
+    function renderSelectedArea() {
+      const p = document.getElementById('selectedAreaPanel');
+      const a = state.selectedArea;
+      if (!a) { p.innerHTML = '<div class="loader-state">Click an area marker to view insights.</div>'; return; }
+      const crimes = Array.isArray(a.common_crimes) ? a.common_crimes : String(a.common_crimes || '').split(/[|,]/).map(s=>s.trim()).filter(Boolean);
+      p.innerHTML = `
+        <div class="detail-header">
+          <div class="detail-name">${escapeHtml(a.area)}</div>
+          ${riskPill(a.risk_level)}
+        </div>
+        <div class="detail-zone">${escapeHtml(a.zone)} • Safety Index ${a.women_safety_index}/100</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-label">Risk score</div><div class="stat-val">${a.risk_score}</div></div>
+          <div class="stat-box"><div class="stat-label">Time risk</div><div class="stat-val">${escapeHtml(a.time_risk)}</div></div>
+          <div class="stat-box"><div class="stat-label">Police</div><div class="stat-val">${escapeHtml(a.police_presence)}</div></div>
+          <div class="stat-box"><div class="stat-label">Lighting</div><div class="stat-val">${escapeHtml(a.lighting_condition)}</div></div>
+        </div>
+        <div class="crime-chips">${crimes.map(c=>`<span class="crime-chip">${escapeHtml(c)}</span>`).join('')}</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:10px;line-height:1.5">${escapeHtml(a.insight)}</div>
+      `;
+    }
+
+    function renderAreaList() {
+      const c = document.getElementById('areaList');
+      let list = [...state.areas].sort((a,b)=>state.sortDesc?b.risk_score-a.risk_score:a.risk_score-b.risk_score);
+      if (!list.length) { c.innerHTML = '<div class="loader-state">No areas loaded.</div>'; return; }
+      c.innerHTML = list.map(a=>`
+        <div class="area-item" data-area="${escapeHtml(a.area)}">
+          <div class="area-row"><span class="area-name">${escapeHtml(a.area)}</span>${riskPill(a.risk_level)}</div>
+          <div class="area-meta">${escapeHtml(a.zone)} • Score ${a.risk_score}</div>
+          <div class="area-insight">${escapeHtml(a.insight)}</div>
+        </div>
+      `).join('');
+      c.querySelectorAll('.area-item').forEach(el=>{
+        el.addEventListener('click',()=>{
+          const area=state.areas.find(a=>a.area===el.dataset.area);
+          if (!area) return;
+          state.selectedArea=area; renderSelectedArea();
+          state.map.flyTo([area.lat,area.lng],13,{animate:true,duration:1.2,easeLinearity:0.25});
+          openSidebarTab('area');
+        });
+      });
+    }
+
+    // ── LOCATION DROPDOWNS ──
+    function buildRouteDropdowns() {
+      const allNames = new Set(state.areas.map(a=>a.area.toLowerCase()));
+      const extras = getCurrentPresetAreas().filter(p=>!allNames.has(p.name.toLowerCase()));
+      const combined = [
+        ...state.areas.map(a=>({ name:a.area, lat:a.lat, lng:a.lng, risk:a.risk_level, city:a.city })),
+        ...extras,
+      ].sort((a,b)=>a.name.localeCompare(b.name));
+
+      window._locAreas = combined;
+      renderLocList('start', '');
+      renderLocList('end', '');
+    }
+
+    function setRouteField(kind, name, lat, lng, centerMap=true) {
+      const input = document.getElementById(kind === 'start' ? 'startInput' : 'endInput');
+      const btn = document.getElementById(kind === 'start' ? 'startBtn' : 'endBtn');
+      input.value = name;
+      btn.textContent = name;
+      btn.classList.remove('placeholder');
+      updatePointMarker(kind, lat, lng);
+      if (centerMap) state.map.flyTo([lat, lng], 14, { animate:true, duration:1.2, easeLinearity:0.25 });
+      const drop = document.getElementById(kind === 'start' ? 'startDropdown' : 'endDropdown');
+      drop.classList.remove('open');
+    }
+
+    function renderLocList(kind, query) {
+      const listId = kind === 'start' ? 'startList' : 'endList';
+      const list = document.getElementById(listId);
+      if (!list) return;
+      const q = (query || '').toLowerCase();
+      const items = (window._locAreas || getCurrentPresetAreas()).filter(a=>a.name.toLowerCase().includes(q)).slice(0,120);
+      if (!items.length) { list.innerHTML='<div class="loader-state">No matches</div>'; return; }
+      list.innerHTML = items.map(a=>`
+        <div class="loc-item" data-lat="${a.lat}" data-lng="${a.lng}" data-name="${escapeHtml(a.name)}" data-kind="${kind}">
+          <div class="li-dot" style="background:${a.risk&&String(a.risk).toLowerCase().includes('high')?'#ff0000':a.risk&&String(a.risk).toLowerCase().includes('medium')?'#ffd400':'#22c55e'}"></div>
+          ${escapeHtml(a.name)}
+        </div>
+      `).join('');
+      list.querySelectorAll('.loc-item').forEach(el=>{
+        el.addEventListener('click',()=>{
+          const lat=parseFloat(el.dataset.lat), lng=parseFloat(el.dataset.lng), name=el.dataset.name;
+          setRouteField(kind, name, lat, lng, true);
+        });
+      });
+    }
+
+    function pickRouteWaypoints(route) {
+      const coords = route?.geometry?.coordinates || [];
+      if (route?.kind !== 'safest' || coords.length < 10) return [];
+      const indexes = [0.25, 0.5, 0.75].map(r => Math.min(coords.length - 2, Math.max(1, Math.floor(coords.length * r))));
+      const points = indexes.map(i => coords[i]).filter(Boolean);
+      const uniq = [];
+      const seen = new Set();
+      points.forEach(pt => {
+        const key = `${pt[1].toFixed(4)},${pt[0].toFixed(4)}`;
+        if (!seen.has(key)) { seen.add(key); uniq.push({ lat: pt[1], lng: pt[0] }); }
+      });
+      return uniq.slice(0, 3);
+    }
+
+    function buildGoogleMapsUrl(route) {
+      if (!state.lastRouteStart || !state.lastRouteEnd) return '#';
+      const origin = `${state.lastRouteStart.lat},${state.lastRouteStart.lng}`;
+      const destination = `${state.lastRouteEnd.lat},${state.lastRouteEnd.lng}`;
+      const url = new URL('https://www.google.com/maps/dir/');
+      url.searchParams.set('api', '1');
+      url.searchParams.set('origin', origin);
+      url.searchParams.set('destination', destination);
+      url.searchParams.set('travelmode', 'driving');
+      const waypoints = pickRouteWaypoints(route);
+      if (waypoints.length) {
+        url.searchParams.set('waypoints', waypoints.map(p => `${p.lat},${p.lng}`).join('|'));
+      }
+      return url.toString();
+    }
+
+    // ── GEOCODING + ROUTING ──
+    async function geocodeLocation(query) {
+      const coordMatch = query.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+      if (coordMatch) return { lat: parseFloat(coordMatch[1]), lng: parseFloat(coordMatch[2]), display_name: query.trim() };
+      const match=state.areas.find(a=>a.area.toLowerCase()===query.trim().toLowerCase());
+      if (match) return { lat:match.lat, lng:match.lng, display_name:`${match.area}, ${match.zone}` };
+      const preset=getCurrentPresetAreas().find(a=>a.name.toLowerCase()===query.trim().toLowerCase());
+      if (preset) return { lat:preset.lat, lng:preset.lng, display_name:preset.name };
+      const searchScope = state.currentCity === 'all' ? 'India' : state.currentCity;
+      const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=in&q=${encodeURIComponent(query+', '+searchScope)}`;
+      const res=await fetch(url,{headers:{'Accept-Language':'en'}});
+      const data=await res.json();
+      if (!data.length) throw new Error(`Could not find: ${query}`);
+      return { lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon), display_name:data[0].display_name };
+    }
+
+    async function fetchOsrmRoute(start,end) {
+      const url=`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&alternatives=true&steps=false&geometries=geojson`;
+      const res=await fetch(url);
+      const data=await res.json();
+      if (data.code!=='Ok'||!data.routes?.length) throw new Error('Could not fetch route from OSRM.');
+      return data.routes;
+    }
+
+    function clearRouteLayers() {
+      state.routeLayers.forEach(l=>state.map.removeLayer(l));
+      state.routeLayers=[];
+    }
+
+    function drawRoutes(routes) {
+      clearRouteLayers();
+      routes.forEach(route=>{
+        // Both routes use blue — fastest = solid, safest = dashed
+        const color = '#3b82f6';
+        const layer=L.geoJSON(route.geometry,{
+          style:{
+            color,
+            weight: route.kind==='safest'?7:5,
+            opacity: (state.selectedRouteId ? state.selectedRouteId===route.id : route.selected)?0.95:0.38,
+            lineCap:'round', lineJoin:'round',
+            dashArray: route.kind==='safest'?'10 10':null,
+          }
+        }).addTo(state.map);
+        layer.on('click',()=>{
+          state.selectedRouteId = route.id;
+          state.currentRoutes=state.currentRoutes.map(r=>({...r,selected:r.id===route.id}));
+          drawRoutes(state.currentRoutes); renderRouteCards();
+        });
+        state.routeLayers.push(layer);
+      });
+      const allCoords=routes.flatMap(r=>r.geometry.coordinates.map(([lng,lat])=>[lat,lng]));
+      if (allCoords.length) state.map.fitBounds(L.latLngBounds(allCoords),{padding:[80,80]});
+    }
+
+    function renderRouteCards() {
+      const c=document.getElementById('routeResults');
+      if (!state.currentRoutes.length) { c.innerHTML='<div class="empty-state">No route yet.</div>'; return; }
+      const selectedId = state.selectedRouteId || state.currentRoutes.find(r=>r.selected)?.id;
+      c.innerHTML=`
+        <div class="route-choice-row">
+          ${state.currentRoutes.map(r=>`<button class="route-choice-btn ${selectedId===r.id?'active':''}" data-route-id="${r.id}">${r.kind==='safest'?'Choose Safest':'Choose Fastest'}</button>`).join('')}
+        </div>
+        <div class="route-grid">${state.currentRoutes.map(r=>`
+        <div class="route-card ${(selectedId===r.id || (!selectedId && r.selected))?'selected':''}" data-route-id="${r.id}">
+          <div class="route-card-header">
+            <div>
+              <div class="route-kind">${r.kind==='safest'?'🛡 Safest Route':'⚡ Fastest Route'}</div>
+              <div class="route-summary">${escapeHtml(r.summary)}</div>
+            </div>
+            ${riskPill(r.riskLevel)}
+          </div>
+          <div class="route-stats">
+            <div class="rs-box"><div class="rs-label">Distance</div><div class="rs-val">${fmtKm(r.distance)}</div></div>
+            <div class="rs-box"><div class="rs-label">ETA</div><div class="rs-val">${fmtDur(r.duration)}</div></div>
+            <div class="rs-box"><div class="rs-label">Risk score</div><div class="rs-val">${r.routeScore}</div></div>
+            <div class="rs-box"><div class="rs-label">Base risk</div><div class="rs-val">${r.baseRisk}</div></div>
+          </div>
+          <div class="pill-row">
+            <span class="pill ${r.riskLevel==='Low'?'safe':r.riskLevel==='Medium'?'warn':'danger'}">${r.riskLevel} risk</span>
+            <span class="pill">${TIME_LABELS[state.currentTimeMode]}</span>
+            <span class="pill">${r.exposedAreas.length} zones</span>
+            <span class="pill ${r.nearbyAlerts?.some(a=>String(a.severity).toLowerCase()==='high')?'danger':(r.nearbyAlerts?.length?'warn':'safe')}">${r.nearbyAlerts?.length||0} alerts nearby</span>
+          </div>
+          <div class="route-footer">${r.nearbyAlerts?.length?`Alerts: ${r.nearbyAlerts.map(a=>escapeHtml(a.micro_location)).join(', ')}`:(r.exposedAreas.length?`Passes: ${r.exposedAreas.map(a=>escapeHtml(a.area||a)).join(', ')}`:'Limited hotspot exposure.')}</div>
+          <div class="route-nav-row">
+            <a class="gmaps-link" href="${buildGoogleMapsUrl(r)}" target="_blank" rel="noopener noreferrer">🗺️ Google Maps • ${r.kind==='safest'?'Safest':'Fastest'}</a>
+          </div>
+        </div>
+      `).join('')}</div>`;
+      c.querySelectorAll('[data-route-id]').forEach(card=>{
+        card.addEventListener('click',()=>{
+          const id = card.dataset.routeId;
+          state.selectedRouteId = id;
+          state.currentRoutes=state.currentRoutes.map(r=>({...r,selected:r.id===id}));
+          drawRoutes(state.currentRoutes); renderRouteCards();
+        });
+      });
+    }
+
+    async function handleRouteSearch() {
+      const status=document.getElementById('routeStatus');
+      const routePanel=document.getElementById('routePanel');
+      const s=document.getElementById('startInput').value.trim();
+      const e=document.getElementById('endInput').value.trim();
+      if (!s||!e) { status.textContent='Enter both start & destination'; return; }
+      routePanel.classList.add('show');
+      status.textContent='Finding routes…';
+      document.getElementById('routeResults').innerHTML='<div class="loader-state">Calculating fastest and safest routes…</div>';
+      try {
+        const [start,end]=await Promise.all([geocodeLocation(s),geocodeLocation(e)]);
+        state.lastRouteStart = { lat: start.lat, lng: start.lng, label: start.display_name };
+        state.lastRouteEnd = { lat: end.lat, lng: end.lng, label: end.display_name };
+        const rawRoutes=await fetchOsrmRoute(start,end);
+        const evaluated=rawRoutes.slice(0,3).map((route,i)=>{
+          const sc=scoreRoute(route.geometry.coordinates,state.currentTimeMode);
+          return { id:`route-${i+1}`, geometry:route.geometry, distance:route.distance, duration:route.duration, routeScore:sc.score, baseRisk:sc.avgBaseRisk, riskLevel:sc.level, exposedAreas:sc.exposedAreas, nearbyAlerts:sc.nearbyAlerts, alertPenalty:sc.alertPenalty, selected:false, kind:'candidate', summary:`${start.display_name.split(',')[0]} → ${end.display_name.split(',')[0]}` };
+        });
+        const fastest=[...evaluated].sort((a,b)=>a.duration-b.duration)[0];
+        const safest=[...evaluated].sort((a,b)=>a.routeScore-b.routeScore||a.duration-b.duration)[0];
+        const routesToShow=[];
+        if (fastest) routesToShow.push({...fastest,kind:'fastest',selected:false});
+        if (safest) routesToShow.push({...safest,kind:'safest',selected:true});
+        const deduped=[]; const seen=new Set();
+        routesToShow.forEach(r=>{ if (seen.has(r.id)) return; seen.add(r.id); deduped.push(r); });
+        if (deduped.length===1) { deduped[0].kind='safest'; deduped[0].selected=true; }
+        state.currentRoutes=deduped;
+        state.selectedRouteId = (deduped.find(r=>r.kind==='safest') || deduped[0])?.id || null;
+        drawRoutes(state.currentRoutes); renderRouteCards();
+        status.textContent='Routes ready — tap safest or fastest to highlight your choice';
+      } catch(err) {
+        console.error(err);
+        status.textContent='Route search failed';
+        document.getElementById('routeResults').innerHTML=`<div class="empty-state">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+
+    function clearRouteSelectionState() {
+      clearRouteLayers();
+      state.currentRoutes = [];
+      state.selectedRouteId = null;
+      state.lastRouteStart = null;
+      state.lastRouteEnd = null;
+      state.mapPickMode = null;
+      const routePanel = document.getElementById('routePanel');
+      const routeStatus = document.getElementById('routeStatus');
+      const routeResults = document.getElementById('routeResults');
+      const startInput = document.getElementById('startInput');
+      const endInput = document.getElementById('endInput');
+      const startBtn = document.getElementById('startBtn');
+      const endBtn = document.getElementById('endBtn');
+      const pickStartMapBtn = document.getElementById('pickStartMapBtn');
+      const pickEndMapBtn = document.getElementById('pickEndMapBtn');
+
+      routePanel.classList.remove('show');
+      routeStatus.textContent = 'Search a route to compare safest and fastest options';
+      routeResults.innerHTML = '<div class="empty-state">Enter two locations above to find fastest &amp; safest routes. Try <strong>Connaught Place → Hauz Khas Village</strong>.</div>';
+
+      startInput.value = '';
+      endInput.value = '';
+      startBtn.textContent = 'From (e.g. Connaught Place)';
+      endBtn.textContent = 'To (e.g. Hauz Khas)';
+      startBtn.classList.add('placeholder');
+      endBtn.classList.add('placeholder');
+
+      pickStartMapBtn.classList.remove('active');
+      pickEndMapBtn.classList.remove('active');
+
+      if (state.pickupMarker) { state.map.removeLayer(state.pickupMarker); state.pickupMarker = null; }
+      if (state.dropMarker) { state.map.removeLayer(state.dropMarker); state.dropMarker = null; }
+    }
+
+    // ── SIDEBAR TABS ──
+    function openSidebarTab(tabId) {
+      document.querySelectorAll('.stab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tabId));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===`tab-${tabId}`));
+    }
+
+    // ── EVENTS ──
+    function wireEvents() {
+      const hamburger=document.getElementById('hamburger');
+      const sidebar=document.getElementById('sidebar');
+      const overlay=document.getElementById('sidebarOverlay');
+      const topbar = document.querySelector('.topbar');
+      function toggleSidebar(forceOpen) {
+        const open = typeof forceOpen === 'boolean' ? forceOpen : !sidebar.classList.contains('open');
+        sidebar.classList.toggle('open', open);
+        hamburger.classList.toggle('open', open);
+        overlay.classList.toggle('open', open);
+        topbar.classList.toggle('menu-open', open);
+      }
+      hamburger.addEventListener('click',toggleSidebar);
+      overlay.addEventListener('click',()=>toggleSidebar(false));
+
+      document.querySelectorAll('.stab').forEach(btn=>{
+        btn.addEventListener('click',()=>openSidebarTab(btn.dataset.tab));
+      });
+
+      const startBtn=document.getElementById('startBtn');
+      const endBtn=document.getElementById('endBtn');
+      const startDrop=document.getElementById('startDropdown');
+      const endDrop=document.getElementById('endDropdown');
+      const startSearch=document.getElementById('startSearch');
+      const endSearch=document.getElementById('endSearch');
+      const pickStartMapBtn=document.getElementById('pickStartMapBtn');
+      const pickEndMapBtn=document.getElementById('pickEndMapBtn');
+      const locationWrap = document.getElementById('locationWrap');
+      const locationBtn = document.getElementById('locationBtn');
+      const locationDrop = document.getElementById('locationDropdown');
+      const locSearch = document.getElementById('locSearch');
+
+      locationBtn.addEventListener('click',()=>{
+        const open = locationDrop.classList.toggle('open');
+        locationBtn.classList.toggle('open', open);
+        startDrop.classList.remove('open');
+        endDrop.classList.remove('open');
+        if (open) setTimeout(()=>locSearch.focus(),80);
+      });
+      locSearch.addEventListener('input',()=>renderCityList(locSearch.value));
+
+      startBtn.addEventListener('click',()=>{
+        const open=startDrop.classList.toggle('open');
+        endDrop.classList.remove('open');
+        if (open) setTimeout(()=>startSearch.focus(),80);
+      });
+      endBtn.addEventListener('click',()=>{
+        const open=endDrop.classList.toggle('open');
+        startDrop.classList.remove('open');
+        if (open) setTimeout(()=>endSearch.focus(),80);
+      });
+      startSearch.addEventListener('input',()=>renderLocList('start', startSearch.value));
+      endSearch.addEventListener('input',()=>renderLocList('end', endSearch.value));
+
+      document.getElementById('useCurrentPickup').addEventListener('click',()=>{
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+          pos=>{
+            const label=`Current location (${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)})`;
+            setRouteField('start', label, pos.coords.latitude, pos.coords.longitude, true);
+            document.getElementById('startInput').value=`${pos.coords.latitude},${pos.coords.longitude}`;
+            document.getElementById('startBtn').textContent='Current location';
+          },
+          ()=>alert('Could not access current location.'),
+          {enableHighAccuracy:true,timeout:7000}
+        );
+      });
+
+      pickStartMapBtn.addEventListener('click',()=>{
+        state.mapPickMode = state.mapPickMode === 'start' ? null : 'start';
+        pickStartMapBtn.classList.toggle('active', state.mapPickMode === 'start');
+        pickEndMapBtn.classList.remove('active');
+        document.getElementById('routeStatus').textContent = state.mapPickMode === 'start' ? 'Click on map to choose pickup location' : 'Enter start and destination to navigate';
+      });
+      pickEndMapBtn.addEventListener('click',()=>{
+        state.mapPickMode = state.mapPickMode === 'end' ? null : 'end';
+        pickEndMapBtn.classList.toggle('active', state.mapPickMode === 'end');
+        pickStartMapBtn.classList.remove('active');
+        document.getElementById('routeStatus').textContent = state.mapPickMode === 'end' ? 'Click on map to choose drop location' : 'Enter start and destination to navigate';
+      });
+
+      state.map.on('click', async (e)=>{
+        if (!state.mapPickMode) return;
+        const {lat,lng} = e.latlng;
+        const label = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        setRouteField(state.mapPickMode, label, lat, lng, false);
+        const input = document.getElementById(state.mapPickMode === 'start' ? 'startInput' : 'endInput');
+        input.value = `${lat},${lng}`;
+        document.getElementById(state.mapPickMode === 'start' ? 'pickStartMapBtn' : 'pickEndMapBtn').classList.remove('active');
+        const picked = state.mapPickMode === 'start' ? 'Pickup' : 'Drop';
+        state.mapPickMode = null;
+        document.getElementById('routeStatus').textContent = `${picked} pin placed on map`;
+      });
+
+      document.addEventListener('click',e=>{
+        if (!locationWrap.contains(e.target)) { locationDrop.classList.remove('open'); locationBtn.classList.remove('open'); }
+        if (!document.getElementById('startWrap').contains(e.target)) startDrop.classList.remove('open');
+        if (!document.getElementById('endWrap').contains(e.target)) endDrop.classList.remove('open');
+      });
+
+      document.getElementById('routeCloseBtn').addEventListener('click', clearRouteSelectionState);
+      document.getElementById('routeBtn').addEventListener('click',handleRouteSearch);
+      document.getElementById('startSearch').addEventListener('keydown',e=>{ if (e.key==='Enter') handleRouteSearch(); });
+      document.getElementById('endSearch').addEventListener('keydown',e=>{ if (e.key==='Enter') handleRouteSearch(); });
+
+      document.getElementById('locateBtn').addEventListener('click',()=>{
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+          pos=>state.map.flyTo([pos.coords.latitude,pos.coords.longitude],14,{animate:true,duration:1.2,easeLinearity:0.25}),
+          ()=>alert('Could not access location.'),
+          {enableHighAccuracy:true,timeout:7000}
+        );
+      });
+
+      document.getElementById('sosBtn').addEventListener('click',()=>{
+        window.location.href = 'tel:112';
+      });
+
+      document.getElementById('timeSelector').addEventListener('change',e=>{
+        state.currentTimeMode=e.target.value;
+        renderStats();
+        if (state.currentRoutes.length) handleRouteSearch();
+      });
+
+      document.getElementById('sortToggleBtn').addEventListener('click',function(){
+        state.sortDesc=!state.sortDesc;
+        this.textContent=state.sortDesc?'↓ Highest first':'↑ Lowest first';
+        renderAreaList();
+      });
+    }
+
+    // ── INIT ──
+    async function init() {
+      initMap();
+      wireEvents();
+      renderCityList('');
+      window._locAreas = PRESET_AREAS.map(a=>({...a,risk:a.risk}));
+      renderLocList('start','');
+      renderLocList('end','');
+      await loadAreas();
+      await loadAlerts();
+    }
+
+    init();
+  </script>
+</body>
+</html>
