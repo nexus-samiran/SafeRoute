@@ -43,7 +43,10 @@
       display: flex; align-items: center; gap: 10px; pointer-events: none;
     }
     .topbar > * { pointer-events: auto; }
-    .topbar.menu-open .brand { opacity: 0; visibility: hidden; pointer-events: none; }
+    
+    /* MODIFIED: Hiding location wrap along with brand to avoid overlapping */
+    .topbar.menu-open .brand,
+    .topbar.menu-open .location-wrap { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s; }
     .topbar.menu-open .hamburger { position: relative; z-index: 1305; }
 
     /* Hamburger */
@@ -331,22 +334,6 @@
     .empty-state { padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border); color: var(--muted); font-size: 0.85rem; }
     .loader-state { padding: 14px; color: var(--muted); font-size: 0.82rem; }
 
-    /* ── LOCATE FLOAT BUTTON ── */
-    .locate-float {
-      position: absolute;
-      right: 14px;
-      bottom: 102px; /* sits above leaflet zoom controls (~80px tall) */
-      z-index: 1200;
-      width: 40px; height: 40px; border-radius: 12px;
-      background: var(--glass3); border: 1px solid var(--border);
-      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-      color: var(--text); font-size: 1.05rem; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: var(--shadow2);
-      transition: background 0.2s, border-color 0.2s, transform 0.15s;
-    }
-    .locate-float:hover { background: var(--glass2); border-color: var(--border2); transform: translateY(-1px); }
-
     /* ── ZOOM CONTROLS override ── */
     .leaflet-control-zoom { border: none !important; box-shadow: none !important; }
     .leaflet-control-zoom a {
@@ -380,27 +367,6 @@
       box-shadow: 0 18px 34px rgba(239,68,68,0.35); cursor: pointer;
     }
     .sos-float:hover { transform: translateY(-1px); }
-
-    /* ── HAMBURGER OPEN STATES ── */
-    .topbar.menu-open .route-wrap { display: none !important; }
-
-    /* City selector floats as overlay when menu is open */
-    @media (max-width: 900px) {
-      .topbar.menu-open .location-wrap {
-        position: absolute;
-        top: 54px;
-        left: 14px;
-        right: 14px;
-        max-width: none;
-        z-index: 1300;
-      }
-      /* Dropdown opens UPWARD when menu is open */
-      .topbar.menu-open .location-dropdown {
-        top: auto;
-        bottom: calc(100% + 8px);
-        border-radius: 18px;
-      }
-    }
 
     @media (max-width: 900px) {
       .topbar { flex-wrap: wrap; align-items: stretch; }
@@ -554,7 +520,6 @@
   <div id="map"></div>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">
@@ -562,6 +527,15 @@
         Safe Route
       </div>
       <span style="font-size:0.72rem;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:var(--accent2);padding:3px 10px;border-radius:999px;font-weight:700">BETA</span>
+    </div>
+
+    <div style="padding: 14px 14px 0;">
+      <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 0.85rem;">🏙️</span>
+        <select id="sidebarCitySelect" style="flex: 1; background: transparent; border: none; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer;">
+          <option value="all" style="color: #111;">All India</option>
+        </select>
+      </div>
     </div>
 
     <div class="sidebar-tabs">
@@ -573,7 +547,6 @@
 
     <div class="sidebar-content">
 
-      <!-- AREA INSIGHT -->
       <div class="tab-panel active" id="tab-area">
         <div class="s-card">
           <div class="s-card-title">City Snapshot</div>
@@ -591,7 +564,6 @@
         </div>
       </div>
 
-      <!-- TOP RISK -->
       <div class="tab-panel" id="tab-risk">
         <div class="s-card">
           <div class="s-card-title">All database areas</div>
@@ -609,7 +581,6 @@
         </div>
       </div>
 
-      <!-- LEGEND -->
       <div class="tab-panel" id="tab-legend">
         <div class="s-card">
           <div class="s-card-title">Risk Heatmap</div>
@@ -642,7 +613,6 @@
         </div>
       </div>
 
-      <!-- ABOUT -->
       <div class="tab-panel" id="tab-about">
         <div class="s-card">
           <div class="s-card-title">About Safe Route</div>
@@ -661,7 +631,6 @@
     </div>
   </aside>
 
-  <!-- TOPBAR -->
   <div class="topbar">
     <button class="hamburger" id="hamburger" title="Menu" aria-label="Toggle menu">
       <span></span><span></span><span></span>
@@ -689,11 +658,10 @@
       </div>
     </div>
 
-    <!-- Route inputs -->
     <div class="route-wrap">
       <div class="route-dd-wrap" id="startWrap">
         <button id="startBtn" class="route-dd-btn placeholder" type="button">From (e.g. Connaught Place)</button>
-        <button id="pickStartMapBtn" class="mini-map-btn" type="button" title="Pick pickup from map">Map</button>
+        <button id="pickStartMapBtn" class="mini-map-btn" type="button" title="Fetch current location">Map</button>
         <input id="startInput" class="route-input" type="hidden" />
         <div class="route-dropdown" id="startDropdown">
           <div class="loc-search-wrap">
@@ -718,12 +686,11 @@
       <button class="go-btn" id="routeBtn">Go</button>
     </div>
 
+    <button class="icon-btn" id="locateBtn" title="Locate me">📡</button>
   </div>
 
   <button class="sos-float" id="sosBtn" title="Emergency SOS">SOS</button>
-  <button class="locate-float" id="locateBtn" title="Locate me">📡</button>
 
-  <!-- ROUTE PANEL (bottom) -->
   <div class="route-panel" id="routePanel">
     <div class="route-panel-header">
       <div class="route-panel-header-left">
@@ -733,7 +700,7 @@
       <span class="route-status" id="routeStatus">Search a route to compare safest and fastest options</span>
     </div>
     <div id="routeResults">
-      <div class="empty-state">Enter two locations above to find fastest &amp; safest routes. Try <strong>Connaught Place → Hauz Khas Village</strong>.</div>
+      <div class="empty-state">Enter two locations above to find fastest & safest routes. Try <strong>Connaught Place → Hauz Khas Village</strong>.</div>
     </div>
   </div>
 
@@ -807,7 +774,7 @@
 
     // ── HELPERS ──
     function escapeHtml(str = '') {
-      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
     function getRiskClass(r = '') {
       const l = r.toLowerCase();
@@ -946,7 +913,7 @@
         updateWhenZooming: false,
         updateWhenIdle: true,
         keepBuffer: 8,
-        attribution:'&copy; OpenStreetMap contributors'
+        attribution:'© OpenStreetMap contributors'
       }).addTo(state.map);
     }
 
@@ -962,8 +929,20 @@
       const dbCities = [...new Set(state.allAreas.map(a => a.city).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
       const presetCities = [...new Set(PRESET_AREAS.map(a => a.city).filter(Boolean))];
       state.availableCities = [...new Set([...dbCities, ...presetCities])].sort((a,b)=>a.localeCompare(b));
+      populateSidebarCitySelect();
       renderCityList('');
       applyCityFilter('all', false);
+    }
+
+    function populateSidebarCitySelect() {
+      const select = document.getElementById('sidebarCitySelect');
+      if (!select) return;
+      const opts = ['<option value="all" style="color: #111;">All India</option>'];
+      state.availableCities.forEach(city => {
+        opts.push(`<option value="${escapeHtml(city)}" style="color: #111;">${escapeHtml(city)}</option>`);
+      });
+      select.innerHTML = opts.join('');
+      select.value = state.currentCity || 'all';
     }
 
     async function loadAlerts() {
@@ -1024,6 +1003,12 @@
     function applyCityFilter(cityName='all', shouldZoom=true) {
       state.currentCity = cityName;
       state.areas = cityName === 'all' ? [...state.allAreas] : state.allAreas.filter(a => a.city === cityName);
+      
+      const sidebarSel = document.getElementById('sidebarCitySelect');
+      if (sidebarSel && sidebarSel.value !== cityName) {
+        sidebarSel.value = cityName;
+      }
+
       if (state.selectedArea && cityName !== 'all' && state.selectedArea.city !== cityName) state.selectedArea = null;
       document.getElementById('locationLabel').textContent = cityName === 'all' ? 'All India' : cityName;
       document.getElementById('locSearch').value = '';
@@ -1350,7 +1335,7 @@
 
       routePanel.classList.remove('show');
       routeStatus.textContent = 'Search a route to compare safest and fastest options';
-      routeResults.innerHTML = '<div class="empty-state">Enter two locations above to find fastest &amp; safest routes. Try <strong>Connaught Place → Hauz Khas Village</strong>.</div>';
+      routeResults.innerHTML = '<div class="empty-state">Enter two locations above to find fastest & safest routes. Try <strong>Connaught Place → Hauz Khas Village</strong>.</div>';
 
       startInput.value = '';
       endInput.value = '';
@@ -1378,6 +1363,7 @@
       const sidebar=document.getElementById('sidebar');
       const overlay=document.getElementById('sidebarOverlay');
       const topbar = document.querySelector('.topbar');
+      
       function toggleSidebar(forceOpen) {
         const open = typeof forceOpen === 'boolean' ? forceOpen : !sidebar.classList.contains('open');
         sidebar.classList.toggle('open', open);
@@ -1385,12 +1371,21 @@
         overlay.classList.toggle('open', open);
         topbar.classList.toggle('menu-open', open);
       }
+      
       hamburger.addEventListener('click',toggleSidebar);
       overlay.addEventListener('click',()=>toggleSidebar(false));
 
       document.querySelectorAll('.stab').forEach(btn=>{
         btn.addEventListener('click',()=>openSidebarTab(btn.dataset.tab));
       });
+
+      // Hook up sidebar city selector
+      const sidebarCitySelect = document.getElementById('sidebarCitySelect');
+      if (sidebarCitySelect) {
+        sidebarCitySelect.addEventListener('change', (e) => {
+          applyCityFilter(e.target.value, true);
+        });
+      }
 
       const startBtn=document.getElementById('startBtn');
       const endBtn=document.getElementById('endBtn');
@@ -1441,34 +1436,34 @@
         );
       });
 
+      // MODIFIED: Click MAP beside FROM automatically fetches location instead of map pick mode
       pickStartMapBtn.addEventListener('click',()=>{
-        if (!navigator.geolocation) { alert('Geolocation is not supported by your browser.'); return; }
-        pickStartMapBtn.textContent = '…';
-        pickStartMapBtn.disabled = true;
+        if (!navigator.geolocation) {
+          alert('Geolocation is not supported by your browser.');
+          return;
+        }
+        const originalText = pickStartMapBtn.textContent;
+        pickStartMapBtn.textContent = '...';
         navigator.geolocation.getCurrentPosition(
           pos => {
-            const lat = pos.coords.latitude, lng = pos.coords.longitude;
-            const label = `Current location (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const label = `Current (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
             setRouteField('start', label, lat, lng, true);
             document.getElementById('startInput').value = `${lat},${lng}`;
-            document.getElementById('startBtn').textContent = 'My Location';
-            document.getElementById('startBtn').classList.remove('placeholder');
-            pickStartMapBtn.textContent = 'Map';
-            pickStartMapBtn.disabled = false;
-            document.getElementById('routeStatus').textContent = 'Current location set as pickup';
+            pickStartMapBtn.textContent = originalText;
           },
           () => {
-            alert('Could not access your location. Please allow location access.');
-            pickStartMapBtn.textContent = 'Map';
-            pickStartMapBtn.disabled = false;
+            alert('Could not access current location.');
+            pickStartMapBtn.textContent = originalText;
           },
-          { enableHighAccuracy: true, timeout: 8000 }
+          {enableHighAccuracy: true, timeout: 7000}
         );
       });
+
       pickEndMapBtn.addEventListener('click',()=>{
         state.mapPickMode = state.mapPickMode === 'end' ? null : 'end';
         pickEndMapBtn.classList.toggle('active', state.mapPickMode === 'end');
-        pickStartMapBtn.classList.remove('active');
         document.getElementById('routeStatus').textContent = state.mapPickMode === 'end' ? 'Click on map to choose drop location' : 'Enter start and destination to navigate';
       });
 
