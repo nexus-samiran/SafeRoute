@@ -331,6 +331,22 @@
     .empty-state { padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border); color: var(--muted); font-size: 0.85rem; }
     .loader-state { padding: 14px; color: var(--muted); font-size: 0.82rem; }
 
+    /* ── LOCATE FLOAT BUTTON ── */
+    .locate-float {
+      position: absolute;
+      right: 14px;
+      bottom: 102px; /* sits above leaflet zoom controls (~80px tall) */
+      z-index: 1200;
+      width: 40px; height: 40px; border-radius: 12px;
+      background: var(--glass3); border: 1px solid var(--border);
+      backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+      color: var(--text); font-size: 1.05rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: var(--shadow2);
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .locate-float:hover { background: var(--glass2); border-color: var(--border2); transform: translateY(-1px); }
+
     /* ── ZOOM CONTROLS override ── */
     .leaflet-control-zoom { border: none !important; box-shadow: none !important; }
     .leaflet-control-zoom a {
@@ -364,6 +380,27 @@
       box-shadow: 0 18px 34px rgba(239,68,68,0.35); cursor: pointer;
     }
     .sos-float:hover { transform: translateY(-1px); }
+
+    /* ── HAMBURGER OPEN STATES ── */
+    .topbar.menu-open .route-wrap { display: none !important; }
+
+    /* City selector floats as overlay when menu is open */
+    @media (max-width: 900px) {
+      .topbar.menu-open .location-wrap {
+        position: absolute;
+        top: 54px;
+        left: 14px;
+        right: 14px;
+        max-width: none;
+        z-index: 1300;
+      }
+      /* Dropdown opens UPWARD when menu is open */
+      .topbar.menu-open .location-dropdown {
+        top: auto;
+        bottom: calc(100% + 8px);
+        border-radius: 18px;
+      }
+    }
 
     @media (max-width: 900px) {
       .topbar { flex-wrap: wrap; align-items: stretch; }
@@ -681,10 +718,10 @@
       <button class="go-btn" id="routeBtn">Go</button>
     </div>
 
-    <button class="icon-btn" id="locateBtn" title="Locate me">📡</button>
   </div>
 
   <button class="sos-float" id="sosBtn" title="Emergency SOS">SOS</button>
+  <button class="locate-float" id="locateBtn" title="Locate me">📡</button>
 
   <!-- ROUTE PANEL (bottom) -->
   <div class="route-panel" id="routePanel">
@@ -1405,10 +1442,28 @@
       });
 
       pickStartMapBtn.addEventListener('click',()=>{
-        state.mapPickMode = state.mapPickMode === 'start' ? null : 'start';
-        pickStartMapBtn.classList.toggle('active', state.mapPickMode === 'start');
-        pickEndMapBtn.classList.remove('active');
-        document.getElementById('routeStatus').textContent = state.mapPickMode === 'start' ? 'Click on map to choose pickup location' : 'Enter start and destination to navigate';
+        if (!navigator.geolocation) { alert('Geolocation is not supported by your browser.'); return; }
+        pickStartMapBtn.textContent = '…';
+        pickStartMapBtn.disabled = true;
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const lat = pos.coords.latitude, lng = pos.coords.longitude;
+            const label = `Current location (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+            setRouteField('start', label, lat, lng, true);
+            document.getElementById('startInput').value = `${lat},${lng}`;
+            document.getElementById('startBtn').textContent = 'My Location';
+            document.getElementById('startBtn').classList.remove('placeholder');
+            pickStartMapBtn.textContent = 'Map';
+            pickStartMapBtn.disabled = false;
+            document.getElementById('routeStatus').textContent = 'Current location set as pickup';
+          },
+          () => {
+            alert('Could not access your location. Please allow location access.');
+            pickStartMapBtn.textContent = 'Map';
+            pickStartMapBtn.disabled = false;
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
       });
       pickEndMapBtn.addEventListener('click',()=>{
         state.mapPickMode = state.mapPickMode === 'end' ? null : 'end';
