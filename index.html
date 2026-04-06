@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,10 +44,11 @@
       display: flex; align-items: center; gap: 10px; pointer-events: none;
     }
     .topbar > * { pointer-events: auto; }
-    
-    /* MODIFIED: Hiding location wrap along with brand to avoid overlapping */
+
+    /* ── CHANGE: also hide .route-wrap when menu is open ── */
     .topbar.menu-open .brand,
-    .topbar.menu-open .location-wrap { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s; }
+    .topbar.menu-open .location-wrap,
+    .topbar.menu-open .route-wrap { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s; }
     .topbar.menu-open .hamburger { position: relative; z-index: 1305; }
 
     /* Hamburger */
@@ -352,10 +354,6 @@
 
     /* pulse marker */
     .marker-pulse { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.92); }
-    
-      70% { box-shadow: 0 0 0 12px rgba(255,90,107,0); }
-      100% { box-shadow: 0 0 0 0 rgba(255,90,107,0); }
-    }
 
     /* sidebar overlay (mobile) */
     .sidebar-overlay { position: absolute; inset: 0; z-index: 1090; background: rgba(0,0,0,0.4); display: none; cursor: pointer; }
@@ -388,7 +386,7 @@
       .icon-btn { width:40px; height:40px; }
       .sos-float { width:54px; height:54px; left: 10px; bottom: 154px; }
     }
-  
+
     /* ── FAST LANDING OVERLAY ── */
     body.landing-active { overflow: hidden; }
     .landing-overlay {
@@ -467,7 +465,6 @@
       .landing-actions { width: 100%; }
       .landing-top { align-items: flex-start; }
     }
-
   </style>
 </head>
 <body class="landing-active">
@@ -962,7 +959,6 @@
       document.getElementById('currentTimeMode').textContent = TIME_LABELS[state.currentTimeMode];
     }
 
-
     function getCurrentPresetAreas() {
       return PRESET_AREAS.filter(a => state.currentCity === 'all' || a.city === state.currentCity);
     }
@@ -1003,7 +999,7 @@
     function applyCityFilter(cityName='all', shouldZoom=true) {
       state.currentCity = cityName;
       state.areas = cityName === 'all' ? [...state.allAreas] : state.allAreas.filter(a => a.city === cityName);
-      
+
       const sidebarSel = document.getElementById('sidebarCitySelect');
       if (sidebarSel && sidebarSel.value !== cityName) {
         sidebarSel.value = cityName;
@@ -1044,6 +1040,7 @@
       state.heatLayer = L.heatLayer(pts, { radius:28, blur:26, maxZoom:15, minOpacity:0.28, gradient:{ 0.2:'#22c55e', 0.5:'#f6c340', 0.85:'#ef4444' } });
       if (state.showHeat) state.heatLayer.addTo(state.map);
     }
+
     function renderAlerts() {
       state.alertMarkers.forEach(m=>state.map.removeLayer(m));
       state.alertMarkers = [];
@@ -1211,7 +1208,6 @@
     function drawRoutes(routes) {
       clearRouteLayers();
       routes.forEach(route=>{
-        // Both routes use blue — fastest = solid, safest = dashed
         const color = '#3b82f6';
         const layer=L.geoJSON(route.geometry,{
           style:{
@@ -1315,7 +1311,6 @@
       }
     }
 
-
     function clearRouteSelectionState() {
       clearRouteLayers();
       state.currentRoutes = [];
@@ -1363,7 +1358,7 @@
       const sidebar=document.getElementById('sidebar');
       const overlay=document.getElementById('sidebarOverlay');
       const topbar = document.querySelector('.topbar');
-      
+
       function toggleSidebar(forceOpen) {
         const open = typeof forceOpen === 'boolean' ? forceOpen : !sidebar.classList.contains('open');
         sidebar.classList.toggle('open', open);
@@ -1371,7 +1366,7 @@
         overlay.classList.toggle('open', open);
         topbar.classList.toggle('menu-open', open);
       }
-      
+
       hamburger.addEventListener('click',toggleSidebar);
       overlay.addEventListener('click',()=>toggleSidebar(false));
 
@@ -1379,7 +1374,6 @@
         btn.addEventListener('click',()=>openSidebarTab(btn.dataset.tab));
       });
 
-      // Hook up sidebar city selector
       const sidebarCitySelect = document.getElementById('sidebarCitySelect');
       if (sidebarCitySelect) {
         sidebarCitySelect.addEventListener('change', (e) => {
@@ -1436,7 +1430,6 @@
         );
       });
 
-      // MODIFIED: Click MAP beside FROM automatically fetches location instead of map pick mode
       pickStartMapBtn.addEventListener('click',()=>{
         if (!navigator.geolocation) {
           alert('Geolocation is not supported by your browser.');
@@ -1517,7 +1510,6 @@
       });
     }
 
-    
     function setupLandingOverlay() {
       const overlay = document.getElementById('landingOverlay');
       const continueBtn = document.getElementById('continueWebBtn');
@@ -1530,7 +1522,6 @@
         }
       });
     }
-
 
     // ── INIT ──
     async function init() {
