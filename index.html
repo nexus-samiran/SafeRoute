@@ -48,8 +48,9 @@
     /* ── CHANGE: also hide .route-wrap when menu is open ── */
     .topbar.menu-open .brand,
     .topbar.menu-open .location-wrap,
-    .topbar.menu-open .route-wrap { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s; }
-    .topbar.menu-open .hamburger { position: relative; z-index: 1305; }
+    .topbar.menu-open .route-wrap,
+    .topbar.menu-open #locateBtn,
+    .topbar.menu-open .hamburger { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s; }
 
     /* Hamburger */
     .hamburger {
@@ -195,14 +196,22 @@
     }
     .sidebar.open { transform: translateX(0); pointer-events: auto; }
 
-    .sidebar-header { padding: 18px 18px 0; display: flex; align-items: center; justify-content: space-between; }
+    .sidebar-header { padding: 18px 18px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .sidebar-header-right { display: flex; align-items: center; gap: 10px; }
+    .sidebar-close {
+      width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04); color: var(--text); font-size: 1.2rem; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sidebar-close:hover { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.35); }
     .sidebar-logo { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 
-    .sidebar-tabs { display: flex; gap: 2px; padding: 14px 14px 0; }
+    .sidebar-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 14px 0; }
     .stab {
-      flex: 1; padding: 9px 4px; border: none; background: transparent;
+      flex: 1 1 calc(33.333% - 8px); min-width: 96px; padding: 9px 8px; border: none; background: transparent;
       color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600;
-      cursor: pointer; border-radius: 12px; transition: all 0.2s; text-align: center;
+      cursor: pointer; border-radius: 12px; transition: all 0.15s; text-align: center;
       letter-spacing: 0.01em;
     }
     .stab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
@@ -696,7 +705,10 @@
         <span style="width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#818cf8);box-shadow:0 0 12px rgba(59,130,246,0.7);display:inline-block"></span>
         Safe Route
       </div>
-      <span style="font-size:0.72rem;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:var(--accent2);padding:3px 10px;border-radius:999px;font-weight:700">BETA</span>
+      <div class="sidebar-header-right">
+        <span style="font-size:0.72rem;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:var(--accent2);padding:3px 10px;border-radius:999px;font-weight:700">BETA</span>
+        <button class="sidebar-close" id="sidebarCloseBtn" type="button" aria-label="Close menu">✕</button>
+      </div>
     </div>
 
     <div style="padding: 14px 14px 0;">
@@ -712,7 +724,11 @@
       <button class="stab active" data-tab="area">Area Insight</button>
       <button class="stab" data-tab="risk">Top Risk</button>
       <button class="stab" data-tab="legend">Legend</button>
-      <button class="stab" data-tab="about">About</button>
+      <button class="stab" data-tab="aboutus">About Us</button>
+      <button class="stab" data-tab="terms">Terms</button>
+      <button class="stab" data-tab="privacy">Privacy</button>
+      <button class="stab" data-tab="disclaimer">Disclaimer</button>
+      <button class="stab" data-tab="contact">Contact Us</button>
     </div>
 
     <div class="sidebar-content">
@@ -783,17 +799,67 @@
         </div>
       </div>
 
-      <div class="tab-panel" id="tab-about">
+      <div class="tab-panel" id="tab-aboutus">
         <div class="s-card">
-          <div class="s-card-title">About Safe Route</div>
+          <div class="s-card-title">About Us</div>
           <div class="about-block">
-            <strong>Safe Route</strong> is a women's safety mapping platform focused on major cities in India. It combines real-time area risk data with routing intelligence to show you not just the fastest route — but the safest one.
+            <strong>Safe Route</strong> is a women-focused safety mapping platform created by <strong>Samiran Pande</strong> with the vision of making city travel safer, smarter, and more informed. The platform brings together area-based risk insights, time-sensitive safety signals, and routing support so users can understand their surroundings better before they travel.
             <br/><br/>
-            <strong>Data source:</strong> Supabase-backed area safety dataset with crowd density, lighting conditions, police presence, and historical incident data.
+            The purpose of Safe Route is to help people, especially women, make more confident travel decisions by using accessible safety intelligence instead of guesswork. By combining map technology with indicators such as area risk patterns, location awareness, and route visibility, Safe Route aims to support safer everyday movement across cities.
             <br/><br/>
-            <strong>Routing:</strong> OSRM open routing engine with multi-alternative route scoring.
+            This website is continuously improving with the goal of expanding to more places, refining safety data, and building a practical digital safety ecosystem that is simple to use and meaningful in real life.
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-terms">
+        <div class="s-card">
+          <div class="s-card-title">Terms and Conditions</div>
+          <div class="about-block">
+            <strong>Effective Date:</strong> April 7, 2026
             <br/><br/>
-            Built with ❤ for safer cities.
+            By accessing and using Safe Route, you agree to comply with and be bound by these Terms and Conditions. Safe Route is designed to provide safety insights, area risk analysis, and route recommendations to assist users in making informed travel decisions. The information presented on this platform is intended for general guidance only and should not be considered as definitive or guaranteed. While we strive to maintain accuracy and reliability, we do not guarantee that all data is complete, up to date, or error free, as real world conditions may change at any time.
+            <br/><br/>
+            Users are solely responsible for their actions and decisions while using this platform. Safe Route does not replace personal judgment, situational awareness, or emergency services. The platform may rely on third party services such as maps, geolocation APIs, and external data sources, and we are not responsible for their performance or accuracy. By using this website, you agree that Safe Route shall not be held liable for any direct, indirect, or incidental damages arising from the use of the platform. These terms may be updated periodically, and continued use of the service constitutes acceptance of any changes.
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-privacy">
+        <div class="s-card">
+          <div class="s-card-title">Privacy Policy</div>
+          <div class="about-block">
+            <strong>Effective Date:</strong> April 7, 2026
+            <br/><br/>
+            Safe Route respects your privacy and is committed to protecting your personal information. The platform may collect limited data such as your device location, only when permission is granted, and basic usage information to improve functionality and user experience. This data is used strictly for providing location based services, generating safer route suggestions, and enhancing overall platform performance.
+            <br/><br/>
+            We do not sell, rent, or trade your personal information to third parties. Data may only be shared when required by law or when necessary to operate essential services such as mapping and routing systems. Location data is used solely to display your position on the map and assist in route calculations, and you retain full control over enabling or disabling location access at any time. We implement reasonable security measures to protect user data; however, no digital system can guarantee complete security. By using Safe Route, you acknowledge and accept these conditions regarding data usage and protection.
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-disclaimer">
+        <div class="s-card">
+          <div class="s-card-title">Disclaimer</div>
+          <div class="about-block">
+            <strong>Effective Date:</strong> April 7, 2026
+            <br/><br/>
+            Safe Route is a safety assistance tool intended to provide general awareness and guidance. The risk scores, safety insights, and route recommendations shown on this platform are generated using available data, algorithms, and estimations, which may not always reflect real time conditions or exact ground reality.
+            <br/><br/>
+            The platform does not guarantee safety and should not be relied upon as the sole source for decision making in critical situations. Users should always apply their own judgment and remain aware of their surroundings. In the event of an emergency, users should immediately contact local authorities or emergency services, including 112 in India. By using Safe Route, you acknowledge that all actions and decisions are taken at your own risk, and the platform shall not be held responsible for incidents, losses, or damages.
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-contact">
+        <div class="s-card">
+          <div class="s-card-title">Contact Us</div>
+          <div class="about-block">
+            For support, feedback, partnership queries, or general communication related to Safe Route, you can reach out directly by email.
+            <br/><br/>
+            <a href="mailto:nexus.samiran@gmail.com" style="color:var(--accent3);font-weight:700;text-decoration:none;">nexus.samiran@gmail.com</a>
+            <br/><br/>
+            Tapping this email link will open your default email app so you can contact the Safe Route team quickly.
           </div>
         </div>
       </div>
@@ -1231,7 +1297,31 @@
     function renderSelectedArea() {
       const p = document.getElementById('selectedAreaPanel');
       const a = state.selectedArea;
-      if (!a) { p.innerHTML = '<div class="loader-state">Click an area marker to view insights.</div>'; return; }
+      if (!a) {
+        if (state.currentCity !== 'all' && state.areas.length) {
+          const avgRisk = Math.round(average(state.areas.map(area => area.risk_score)));
+          const highRisk = state.areas.filter(area => area.risk_score >= 65).length;
+          const safestArea = [...state.areas].sort((x, y) => x.risk_score - y.risk_score)[0];
+          const riskiestArea = [...state.areas].sort((x, y) => y.risk_score - x.risk_score)[0];
+          p.innerHTML = `
+            <div class="detail-header">
+              <div class="detail-name">${escapeHtml(state.currentCity)}</div>
+              ${riskPill(normalizeRiskLevel(avgRisk))}
+            </div>
+            <div class="detail-zone">State selected • ${state.areas.length} mapped areas available</div>
+            <div class="stat-grid">
+              <div class="stat-box"><div class="stat-label">Avg. risk</div><div class="stat-val">${avgRisk}</div></div>
+              <div class="stat-box"><div class="stat-label">High-risk zones</div><div class="stat-val">${highRisk}</div></div>
+              <div class="stat-box"><div class="stat-label">Safest area</div><div class="stat-val" style="font-size:0.9rem">${escapeHtml(safestArea?.area || '--')}</div></div>
+              <div class="stat-box"><div class="stat-label">Highest risk</div><div class="stat-val" style="font-size:0.9rem">${escapeHtml(riskiestArea?.area || '--')}</div></div>
+            </div>
+            <div style="font-size:0.78rem;color:var(--muted);margin-top:10px;line-height:1.5">You selected ${escapeHtml(state.currentCity)}. Tap any area marker on the map to see full safety insight for that location.</div>
+          `;
+          return;
+        }
+        p.innerHTML = '<div class="loader-state">Click an area marker to view insights.</div>';
+        return;
+      }
       const crimes = Array.isArray(a.common_crimes) ? a.common_crimes : String(a.common_crimes || '').split(/[|,]/).map(s=>s.trim()).filter(Boolean);
       p.innerHTML = `
         <div class="detail-header">
@@ -1530,6 +1620,7 @@
       const hamburger=document.getElementById('hamburger');
       const sidebar=document.getElementById('sidebar');
       const overlay=document.getElementById('sidebarOverlay');
+      const sidebarCloseBtn=document.getElementById('sidebarCloseBtn');
       const topbar = document.querySelector('.topbar');
 
       function toggleSidebar(forceOpen) {
